@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.138.0/build/three.module.js",
+          "OrbitControls": "https://unpkg.com/three@0.138.0/examples/jsm/controls/OrbitControls.js",
+          "tweenjs": "https://unpkg.com/@tweenjs/tween.js@18.6.4/dist/tween.esm.js"
+        }
+      }
+    </script>
+  </head>
+  <style>
+    html,
+    body {
+      height: 100vh;
+    }
+    html {
+      background-color: #f4f4f4;
+    }
+    body {
+      background-color: #fff;
+    }
+
+    .shake-button {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    @media screen and (max-width: 1200px) {
+      body {
+        width: 750px;
+        margin: 0 auto;
+      }
+    }
+  </style>
+  <body>
+    <button class="shake-button">摇一摇</button>
+  </body>
+
+  <script type="module">
+    // 通过访问 https://cdn.skypack.dev/three 来查找最新版本。
+    import * as THREE from 'three'
+    import { OrbitControls } from 'OrbitControls'
+    import TWEEN from 'tweenjs'
+    const renderer = new THREE.WebGLRenderer()
+    const body = document.querySelector('body')
+
+    renderer.setSize(body.clientWidth, body.clientHeight)
+    renderer.setClearColor(0xeeeeee, 0.0)
+    renderer.setPixelRatio(window.devicePixelRatio)
+    document.body.appendChild(renderer.domElement)
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 500)
+    camera.position.set(0, 150, 300)
+    camera.lookAt(0, 0, 0)
+
+    const scene = new THREE.Scene()
+
+    let geometry = new THREE.BoxGeometry(60, 100, 60)
+    const frontImg = 'https://cdn.qiandaoapp.com/admins/ab78a98b1e68313d57e3e8a582591a22.png!lfit_w1080_jpg'
+    const sideImg = 'https://cdn.qiandaoapp.com/admins/ab78a98b1e68313d57e3e8a582591a22.png!lfit_w1080_jpg'
+    const topImg = 'https://cdn.qiandaoapp.com/admins/ab78a98b1e68313d57e3e8a582591a22.png!lfit_w1080_jpg'
+    const front_material = new THREE.MeshBasicMaterial({
+      map: new THREE.TextureLoader().load(frontImg),
+    })
+    const side__material = new THREE.MeshBasicMaterial({
+      map: new THREE.TextureLoader().load(sideImg),
+    })
+    const top___material = new THREE.MeshBasicMaterial({
+      map: new THREE.TextureLoader().load(topImg),
+    })
+    // 贴上对应纹理图
+    const material = [side__material, side__material, top___material, top___material, front_material, front_material]
+    let cubeMesh = new THREE.Mesh(geometry, material)
+    scene.add(cubeMesh)
+
+    let light = new THREE.PointLight(0xffffff) // 颜色
+    light.position.set(-100, 100, 100) // 位置
+    scene.add(light)
+
+    let controls = new OrbitControls(camera, renderer.domElement)
+    controls.enableZoom = false // 禁止缩放
+    controls.enablePan = false // 禁止平移
+    controls.saveState()
+
+    let stopRotation = false
+
+    function render(time) {
+      requestAnimationFrame(render)
+      TWEEN.update(time)
+      if (!stopRotation) {
+        cubeMesh.rotation.y -= 0.005
+      } else {
+        cubeMesh.rotation.y = cubeMesh.rotation.y
+      }
+
+      controls.update()
+      renderer.render(scene, camera)
+    }
+
+    render()
+    const cameraRadius = 300
+    controls.addEventListener('start', function () {
+      stopRotation = true
+    })
+    controls.addEventListener('end', function () {
+      const position = {
+        ...camera.position,
+      }
+
+      new TWEEN.Tween(position)
+        .to(
+          {
+            x: 0,
+            y: 150,
+            z: 300,
+          },
+          600
+        )
+        .onUpdate(() => {
+          let vLen = Math.sqrt(position.x * position.x + position.y * position.y + position.z * position.z)
+          const zoom = cameraRadius / vLen
+          camera.position.set(position.x * zoom, position.y * zoom, position.z * zoom)
+        })
+        .start()
+        .onComplete(() => {
+          stopRotation = false
+        })
+    })
+
+    function shake() {
+      console.log(cubeMesh)
+      const position = {
+        x: 0,
+        y: 0,
+        z: 0,
+      }
+
+      const rotate = {
+        x: 0,
+        y: 0,
+        z: 0,
+      }
+
+      function updatePosition() {
+        const { x, y, z } = position
+        cubeMesh.position.x = x
+        cubeMesh.position.y = y
+        cubeMesh.position.z = z
+      }
+
+      const updateRotate = (function () {
+        let old = {
+          ...rotate,
+        }
+        return function () {
+          const { x, y, z } = rotate
+          const radian = 2 * Math.PI * ((z - old.z) / 360)
+
+          cubeMesh.rotateZ(radian)
+          old = {
+            ...rotate,
+          }
+        }
+      })()
+
+      const tweenTop = new TWEEN.Tween(position)
+        .to(
+          {
+            y: 20,
+          },
+          200
+        )
+        .onUpdate(updatePosition)
+      const tweenRight = new TWEEN.Tween(rotate).to({ z: 22 }, 200).onUpdate(updateRotate)
+      const tweenLeft = new TWEEN.Tween(rotate).to({ z: -22 }, 200).onUpdate(updateRotate)
+      tweenTop.chain(tweenRight)
+      tweenRight.chain(tweenLeft)
+      tweenLeft.chain(tweenRight)
+      tweenRight.chain(tweenLeft)
+      tweenTop.start()
+      setTimeout(() => {
+        tweenTop.stop()
+        const tweenCenter = new TWEEN.Tween(rotate).to({ z: 0 }, 200).onUpdate(updateRotate)
+        const tweenDown = new TWEEN.Tween(position)
+          .to(
+            {
+              y: 0,
+            },
+            200
+          )
+          .onUpdate(updatePosition)
+        tweenCenter.chain(tweenDown).start()
+      }, 1500)
+    }
+    document.querySelector('.shake-button').addEventListener('click', shake)
+  </script>
+</html>
